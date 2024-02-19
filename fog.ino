@@ -1,5 +1,6 @@
 #include "SPI.h"
 #include "ILI9341_t3n.h"
+#include <XPT2046_Touchscreen.h>
 // *************** Change to your Pin numbers ***************
 #define TFT_DC  9
 #define TFT_CS 10
@@ -9,6 +10,11 @@
 #define TFT_MOSI 11
 #define TOUCH_CS  8
 #define TRIGGER_PIN 2
+#define T_CLK 13
+#define T_CS 8
+#define T_DIN 11
+#define T_DO 12
+#define T_IRQ 3
 
 /*
     LI9341 Pin  Teensy 4.x     Notes
@@ -30,6 +36,7 @@
 
 ILI9341_t3n tft = ILI9341_t3n(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCK, TFT_MISO);
 //ILI9341_t3n tft = ILI9341_t3n(TFT_CS, TFT_DC, TFT_RST);
+XPT2046_Touchscreen ts(T_CS, T_IRQ);
 DMAMEM uint16_t fb1[320 * 240];
 DMAMEM uint16_t fb2[320 * 240];
 int current_fb = 0;
@@ -39,6 +46,7 @@ void setup() {
     tft.setTextSize(2);
     tft.setRotation(0);
     tft.fillScreen(ILI9341_BLACK);
+    ts.begin();
     Serial1.begin(460800);
     Serial1.setTimeout(10);
     pinMode(TRIGGER_PIN, OUTPUT);
@@ -68,6 +76,9 @@ struct FOG_DATA {
     double total_tmp;
     double total_delta;
     unsigned long total_tick;
+    double total_tmp2;
+    double total_delta2;
+    unsigned long total_tick2;
 };
 
 FOG_DATA fog_data = {0};
@@ -216,7 +227,20 @@ void read_fog_data()
             fg->total_tick = 0;
             fg->total_delta = fg->total - fg->total_tmp;
         }
-
+        static unsigned long delay_start = 0;
+        if (0 == delay_start) {
+            delay_start = current;
+        } else if ((current - delay_start) > 5000) {
+            if (0 == fg->total_tick2) {
+                fg->total_tmp2 = fg->total;
+                fg->total_tick2 = current;
+            } else {
+                fg->total_delta2 = fg->total - fg->total_tmp2;
+                if ((current - fg->total_tick2) > (3600 * 1000)) {
+                    fg->total_tick2 = 0;
+                }
+            }
+        }
     }
     drain_data();
 
@@ -305,16 +329,31 @@ void print_fog_data()
         else {
             tft.println("");
         }
-        tft.print("dg1/hr=");
-        tft.println(fog_data.total_delta * (3600.0 / 10.0), 4);
+        tft.print("d1/hr=");
+        tft.print(fog_data.total_delta * (3600.0 / 10.0), 4);
+        tft.print(" ");
+        tft.println((millis() - fog_data.total_tick) / 1000);
+        double tmp = (millis() - fog_data.total_tick2);
+        tmp /= 1000.0;
+        if ((tmp != 0) && fog_data.total_tick2) {
+            tft.print("d2/hr=");
+            tft.print(fog_data.total_delta2 * (3600.0 / tmp), 4);
+            tft.print(" ");
+            tft.println(round(tmp));
+        }
         double a = calculate_slope() * 1000.0 * 1000.0 * 1000.0;
-        tft.print("deg/hr=");
+        tft.print("dv/hr=");
         tft.println(a * 3.6, 4);
-        tft.print("\nindex=");
+        tft.print("\n");
         tft.print(fog_data.index);
-        tft.print(" (");
-        tft.print(millis() - fog_data.total_tick);
-        tft.print(")");
+        tft.print(" ");
+        if (ts.tirqTouched()) {
+            TS_Point p = ts.getPoint();
+            fog_data.total_tick2 = 0;
+            tft.print(p.x);
+            tft.print(" ");
+            tft.print(p.y);
+        }
         tft.println("");
     }
     plot_history();
