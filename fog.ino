@@ -65,6 +65,9 @@ struct FOG_DATA {
     unsigned long ticks[100];
     int index;
     unsigned long tick;
+    double total_tmp;
+    double total_delta;
+    unsigned long total_tick;
 };
 
 FOG_DATA fog_data = {0};
@@ -139,7 +142,6 @@ void read_serial_data()
     // max 1 degree before overflow
     const double factor = 134476195.0;
     int i, amount;
-    int fail = 0;
     byte crc = 0;
     long rotation = 0;
     long temp = 0;
@@ -204,6 +206,17 @@ void read_fog_data()
             fg->index = 0;
         }
         last = current;
+    }
+    {
+        FOG_DATA *fg = &fog_data;
+        if (0 == fg->total_tick) {
+            fg->total_tmp = fg->total;
+            fg->total_tick = current;
+        } else if ((current - fg->total_tick) >= 10000) {
+            fg->total_tick = 0;
+            fg->total_delta = fg->total - fg->total_tmp;
+        }
+
     }
     drain_data();
 
@@ -292,13 +305,17 @@ void print_fog_data()
         else {
             tft.println("");
         }
-        tft.print(" slope=");
+        tft.print("dg1/hr=");
+        tft.println(fog_data.total_delta * (3600.0 / 10.0), 4);
         double a = calculate_slope() * 1000.0 * 1000.0 * 1000.0;
-        tft.println(a, 4);
         tft.print("deg/hr=");
         tft.println(a * 3.6, 4);
         tft.print("\nindex=");
-        tft.println(fog_data.index);
+        tft.print(fog_data.index);
+        tft.print(" (");
+        tft.print(millis() - fog_data.total_tick);
+        tft.print(")");
+        tft.println("");
     }
     plot_history();
     tft.updateScreenAsync();
