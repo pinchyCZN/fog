@@ -236,7 +236,7 @@ void read_fog_data()
                 fg->total_tick2 = current;
             } else {
                 fg->total_delta2 = fg->total - fg->total_tmp2;
-                if ((current - fg->total_tick2) > (3600 * 1000)) {
+                if ((current - fg->total_tick2) > (3600 * 1000 * 48)) {
                     fg->total_tick2 = 0;
                 }
             }
