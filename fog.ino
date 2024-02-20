@@ -347,12 +347,18 @@ void print_fog_data()
         tft.print("\n");
         tft.print(fog_data.index);
         tft.print(" ");
+        static int last_x = 0;
         if (ts.tirqTouched()) {
             TS_Point p = ts.getPoint();
-            fog_data.total_tick2 = 0;
+            if (last_x != p.x) {
+                fog_data.total_tick2 = 0;
+                last_x = p.x;
+            }
             tft.print(p.x);
             tft.print(" ");
             tft.print(p.y);
+        } else {
+            last_x = 0;
         }
         tft.println("");
     }
