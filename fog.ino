@@ -192,11 +192,6 @@ void read_serial_data()
     fog_data.d_temp = temp / 16.0;
     fog_data.d_rot = d;
     fog_data.total += d;
-    if (fog_data.total >= 360.0) {
-        fog_data.total -= 360.0;
-    } else if (fog_data.total <= (-360.0)) {
-        fog_data.total += 360.0;
-    }
     fog_data.tick = micros();
 
 }
@@ -315,7 +310,7 @@ void print_fog_data()
         tft.print("  rot=");
         tft.println(fog_data.d_rot, 8);
         tft.print("total=");
-        tft.println(fog_data.total, 8);
+        tft.println(fmod(fog_data.total, 360.0), 8);
         tft.print(" temp=");
         tft.println(fog_data.d_temp, 2);
         tft.print("\ntick=");
@@ -352,6 +347,7 @@ void print_fog_data()
             TS_Point p = ts.getPoint();
             if (last_x != p.x) {
                 fog_data.total_tick2 = 0;
+                fog_data.total = 0;
                 last_x = p.x;
             }
             tft.print(p.x);
